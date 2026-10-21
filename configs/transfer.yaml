@@ -1,0 +1,29 @@
+project_name: PlantDisease
+seed: 42
+
+data:
+  hf_dataset: "TODO_plant_village_hub_id"
+  subset_fraction: 0.25
+  split: {train: 0.70, val: 0.15, test: 0.15}
+  image_size: 224            # pretrained ResNet expects ~224
+  augment: true
+  num_workers: 2
+
+model:
+  name: resnet18
+  channels: []
+  dropout: 0.0
+  batch_norm: true
+  num_classes: 39
+
+train:
+  optimizer: adamw
+  lr: 0.0003
+  weight_decay: 0.0001
+  batch_size: 64
+  epochs: 15
+  early_stopping_patience: 3
+  scheduler: none
+
+clearml:
+  tags: ["transfer", "resnet18"]

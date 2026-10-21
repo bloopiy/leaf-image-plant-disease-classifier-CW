@@ -1,0 +1,15 @@
+torch
+torchvision
+datasets
+clearml
+gradio
+pyyaml
+numpy
+pandas
+matplotlib
+seaborn
+scikit-learn
+pillow
+tqdm
+pytest
+huggingface_hub
