@@ -1,0 +1,6 @@
+# Gradio app settings. Paths are relative to the app/ folder.
+app:
+  image_size: 128            # must match training; confirm with the data lead
+  top_k: 5
+  class_names: class_names.json
+  weights: null              # null = untrained dummy model; later a path to a state dict
