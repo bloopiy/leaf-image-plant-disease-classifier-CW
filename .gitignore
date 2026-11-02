@@ -10,3 +10,4 @@ outputs/
 *.pth
 *.ckpt
 .DS_Store
+.idea/
