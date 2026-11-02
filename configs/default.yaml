@@ -1,1 +1,3 @@
-# TODO: hyperparameters (data, model, train, clearml)
+data:
+  dataset:
+    id: DScomp380/plant_village
