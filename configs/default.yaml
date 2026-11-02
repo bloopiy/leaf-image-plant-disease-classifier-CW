@@ -1,3 +1,5 @@
 data:
   dataset:
     id: DScomp380/plant_village
+  use_full_development_pool: false
+  prototype_fraction: 0.25
