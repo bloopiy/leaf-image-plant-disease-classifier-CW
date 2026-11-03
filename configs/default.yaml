@@ -13,6 +13,10 @@ model:
   conv_dropout: 0.0        # Dropout2d after each conv block (0 = off)
   dense_dropout: 0.3       # Dropout after each hidden dense layer (0 = off)
  
-# TODO: data (Data lead)
 # TODO: train (Training lead)
 # TODO: clearml (Training lead)
+data:
+  dataset:
+    id: DScomp380/plant_village
+  use_full_development_pool: false
+  prototype_fraction: 0.25
