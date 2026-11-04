@@ -7,6 +7,13 @@ import yaml
 
 APP_DIR = Path(__file__).resolve().parent
 
+# Long class names scroll sideways inside the results panel instead of
+# pushing their percentage out of view.
+CSS = """
+#predictions { overflow-x: auto; }
+#predictions .container { width: max-content; min-width: 100%; }
+"""
+
 
 def find_root():
     """Return the folder holding configs/ and src/: the repo, or a deployed Space."""
@@ -20,7 +27,7 @@ ROOT = find_root()
 # Make `plantdisease` importable without installing the package.
 sys.path.insert(0, str(ROOT / "src"))
 
-from inference import build_preprocess, predict_topk  # noqa: E402
+from inference import build_preprocess, format_label, predict_topk  # noqa: E402
 from model_loader import load_class_names, load_model  # noqa: E402
 
 
@@ -43,7 +50,8 @@ def classify(image):
     """Gradio callback: run the model on one uploaded image."""
     if image is None:
         return None
-    return predict_topk(image, MODEL, PREPROCESS, CLASS_NAMES, k=CFG["top_k"])
+    top = predict_topk(image, MODEL, PREPROCESS, CLASS_NAMES, k=CFG["top_k"])
+    return {format_label(name): prob for name, prob in top.items()}
 
 
 def build_ui():
@@ -52,10 +60,10 @@ def build_ui():
         gr.Markdown("# Plant Disease Classifier\nUpload a photo of a leaf to see the most likely diseases.")
         with gr.Row():
             image = gr.Image(type="pil", label="Leaf image")
-            result = gr.Label(num_top_classes=CFG["top_k"], label="Top predictions")
+            result = gr.Label(num_top_classes=CFG["top_k"], label="Top predictions", elem_id="predictions")
         gr.Button("Classify", variant="primary").click(classify, inputs=image, outputs=result)
     return demo
 
 
 if __name__ == "__main__":
-    build_ui().launch()
+    build_ui().launch(css=CSS)
