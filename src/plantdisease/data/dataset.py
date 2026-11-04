@@ -36,3 +36,4 @@ def load_plant_dataset(cfg):
     dataset = load_dataset(cfg["data"]["dataset"]["id"], split="train")
     validate_dataset_schema(dataset)
     return dataset
+
