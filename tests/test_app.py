@@ -1,35 +1,59 @@
 from pathlib import Path
 
 import pytest
+import torch
 from PIL import Image
 
 from inference import build_preprocess, predict_topk
-from model_loader import DummyModel, load_class_names
+from model_loader import load_class_names, load_model
+from plantdisease.models import SimpleCNN
 
 CLASS_NAMES_PATH = Path(__file__).resolve().parents[1] / "app" / "class_names.json"
 NAMES = [f"class_{i}" for i in range(39)]
 
 
 @pytest.fixture
-def model():
-    return DummyModel(len(NAMES)).eval()
+def model(project_cfg):
+    return load_model(project_cfg)
+
+
+@pytest.fixture
+def preprocess(project_cfg):
+    return build_preprocess(project_cfg["model"]["input_size"])
+
+
+def test_load_model_builds_simple_cnn_in_eval_mode(model):
+    assert isinstance(model, SimpleCNN)
+    assert not model.training
+
+
+@pytest.mark.parametrize("key", ["model_state_dict", None])
+def test_load_model_restores_weights(project_cfg, tmp_path, key):
+    trained = load_model(project_cfg)
+    state = trained.state_dict()
+    path = tmp_path / "best.pt"
+    torch.save({key: state, "epoch": 3} if key else state, path)
+
+    restored = load_model(project_cfg, path)
+    for name, tensor in restored.state_dict().items():
+        assert torch.equal(tensor, state[name])
 
 
 @pytest.mark.parametrize("mode,size", [("RGB", (256, 256)), ("RGBA", (300, 200)), ("L", (64, 64))])
-def test_predict_returns_five_probabilities(model, mode, size):
-    out = predict_topk(Image.new(mode, size), model, build_preprocess(128), NAMES, k=5)
+def test_predict_returns_five_probabilities(model, preprocess, mode, size):
+    out = predict_topk(Image.new(mode, size), model, preprocess, NAMES, k=5)
     assert len(out) == 5
     assert sum(out.values()) <= 1.0 + 1e-6
     assert all(name in NAMES for name in out)
 
 
-def test_predictions_sorted_by_probability(model):
-    out = predict_topk(Image.new("RGB", (128, 128)), model, build_preprocess(128), NAMES, k=5)
+def test_predictions_sorted_by_probability(model, preprocess):
+    out = predict_topk(Image.new("RGB", (128, 128)), model, preprocess, NAMES, k=5)
     probs = list(out.values())
     assert probs == sorted(probs, reverse=True)
 
 
-def test_class_names_file_has_39_unique_labels():
+def test_class_names_match_model_outputs(project_cfg):
     names = load_class_names(CLASS_NAMES_PATH)
-    assert len(names) == 39
-    assert len(set(names)) == 39
+    assert len(names) == project_cfg["model"]["num_classes"]
+    assert len(set(names)) == len(names)
