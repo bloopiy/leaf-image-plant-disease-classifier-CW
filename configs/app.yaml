@@ -1,6 +1,6 @@
-# Gradio app settings. Paths are relative to the app/ folder.
+# Gradio app settings. class_names is relative to app/, model_config to configs/.
 app:
-  image_size: 128            # must match training; confirm with the data lead
   top_k: 5
   class_names: class_names.json
-  weights: null              # null = untrained dummy model; later a path to a state dict
+  model_config: default.yaml   # architecture and input size come from the model section
+  weights: null                # null = untrained model; later a trainer checkpoint such as checkpoints/best.pt
