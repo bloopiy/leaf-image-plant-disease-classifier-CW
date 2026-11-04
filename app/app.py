@@ -7,11 +7,14 @@ import yaml
 
 APP_DIR = Path(__file__).resolve().parent
 
-# Long class names scroll sideways inside the results panel instead of
-# pushing their percentage out of view.
+# Long class names scroll sideways on their own row while the
+# percentage stays pinned to the right edge of the results panel.
 CSS = """
-#predictions { overflow-x: auto; }
-#predictions .container { width: max-content; min-width: 100%; }
+#predictions .inner-wrap, #predictions .label { min-width: 0; }
+#predictions .label { display: flex; align-items: baseline; }
+#predictions .text { flex: 0 1 auto; min-width: 0; overflow-x: auto; white-space: nowrap; scrollbar-width: thin; }
+#predictions .line { flex: 1 0 16px; }
+#predictions .confidence { flex: none; padding-left: var(--size-2); }
 """
 
 
