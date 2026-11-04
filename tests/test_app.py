@@ -4,7 +4,7 @@ import pytest
 import torch
 from PIL import Image
 
-from inference import build_preprocess, predict_topk
+from inference import build_preprocess, format_label, predict_topk
 from model_loader import load_class_names, load_model
 from plantdisease.models import SimpleCNN
 
@@ -57,3 +57,18 @@ def test_class_names_match_model_outputs(project_cfg):
     names = load_class_names(CLASS_NAMES_PATH)
     assert len(names) == project_cfg["model"]["num_classes"]
     assert len(set(names)) == len(names)
+
+
+@pytest.mark.parametrize("raw,shown", [
+    ("Peach___healthy", "Peach · Healthy"),
+    ("Tomato___Septoria_leaf_spot", "Tomato · Septoria leaf spot"),
+    ("Pepper,_bell___Bacterial_spot", "Pepper, bell · Bacterial spot"),
+    ("Background_without_leaves", "Background without leaves"),
+])
+def test_format_label(raw, shown):
+    assert format_label(raw) == shown
+
+
+def test_formatted_labels_stay_unique():
+    names = load_class_names(CLASS_NAMES_PATH)
+    assert len({format_label(name) for name in names}) == len(names)

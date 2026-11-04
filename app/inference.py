@@ -12,6 +12,13 @@ def build_preprocess(image_size):
     ])
 
 
+def format_label(name):
+    """Turn a dataset label like 'Tomato___Leaf_Mold' into 'Tomato · Leaf Mold'."""
+    crop, _, condition = name.partition("___")
+    parts = [part.replace("_", " ").strip() for part in (crop, condition) if part]
+    return " · ".join(part[0].upper() + part[1:] for part in parts)
+
+
 def predict_topk(image, model, preprocess, class_names, k=5):
     """Return {class_name: probability} for the k most likely classes."""
     x = preprocess(image.convert("RGB")).unsqueeze(0)
