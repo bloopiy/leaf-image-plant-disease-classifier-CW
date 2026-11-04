@@ -1,28 +1,42 @@
 """Gradio app: upload a leaf photo and see the top predicted diseases."""
+import sys
 from pathlib import Path
 
 import gradio as gr
 import yaml
 
-from inference import build_preprocess, predict_topk
-from model_loader import load_class_names, load_model
-
 APP_DIR = Path(__file__).resolve().parent
 
 
-def find_config():
-    """Locate app.yaml in the repo (configs/ beside app/) or in a deployed Space."""
+def find_root():
+    """Return the folder holding configs/ and src/: the repo, or a deployed Space."""
     for root in (APP_DIR.parent, APP_DIR):
-        path = root / "configs" / "app.yaml"
-        if path.is_file():
-            return path
+        if (root / "configs" / "app.yaml").is_file():
+            return root
     raise FileNotFoundError("configs/app.yaml not found")
 
 
-CFG = yaml.safe_load(find_config().read_text())["app"]
+ROOT = find_root()
+# Make `plantdisease` importable without installing the package.
+sys.path.insert(0, str(ROOT / "src"))
+
+from inference import build_preprocess, predict_topk  # noqa: E402
+from model_loader import load_class_names, load_model  # noqa: E402
+
+
+def load_settings():
+    """Read the app settings and the model config they point to."""
+    app_cfg = yaml.safe_load((ROOT / "configs" / "app.yaml").read_text())["app"]
+    model_cfg = yaml.safe_load((ROOT / "configs" / app_cfg["model_config"]).read_text())
+    return app_cfg, model_cfg
+
+
+CFG, MODEL_CFG = load_settings()
 CLASS_NAMES = load_class_names(APP_DIR / CFG["class_names"])
-MODEL = load_model(CFG["weights"], len(CLASS_NAMES))
-PREPROCESS = build_preprocess(CFG["image_size"])
+if len(CLASS_NAMES) != MODEL_CFG["model"]["num_classes"]:
+    raise ValueError(f"{len(CLASS_NAMES)} class names but the model has {MODEL_CFG['model']['num_classes']} outputs")
+MODEL = load_model(MODEL_CFG, ROOT / CFG["weights"] if CFG["weights"] else None)
+PREPROCESS = build_preprocess(MODEL_CFG["model"]["input_size"])
 
 
 def classify(image):
