@@ -1,1 +1,22 @@
-# TODO: hyperparameters (data, model, train, clearml)
+# Hyperparameters for code 
+seed: 42
+ 
+# --- model: owned by the CNN lead ---
+model:
+  num_classes: 39
+  in_channels: 3
+  input_size: 128          # square input resolution fed to the CNN
+  channels: [32, 64, 128]  # one entry per conv block; depth = len(channels)
+  dense_units: [128]       # hidden dense layers in the head; [] = single linear layer
+  pooling: flatten         # flatten | global_avg
+  batch_norm: true         # BatchNorm2d after each conv, BatchNorm1d after hidden dense
+  conv_dropout: 0.0        # Dropout2d after each conv block (0 = off)
+  dense_dropout: 0.3       # Dropout after each hidden dense layer (0 = off)
+ 
+# TODO: train (Training lead)
+# TODO: clearml (Training lead)
+data:
+  dataset:
+    id: DScomp380/plant_village
+  use_full_development_pool: false
+  prototype_fraction: 0.25
