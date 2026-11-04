@@ -13,15 +13,18 @@ def load_class_names(path):
 
 
 def load_model(cfg, weights=None):
-    """Build the model from the project config and return it in eval mode.
+    """Build the model and return (model in eval mode, config it was built from).
 
     `weights` is a checkpoint saved by the trainer (a dict with
-    "model_state_dict") or a plain state dict. Without it the model is
-    untrained, so predictions are random.
+    "model_state_dict" and the "config" it trained with) or a plain state
+    dict. A saved config wins over `cfg` so the architecture always matches
+    the weights. Without weights the model is untrained, so predictions are
+    random.
     """
+    checkpoint = torch.load(weights, map_location="cpu", weights_only=True) if weights else {}
+    cfg = checkpoint.get("config", cfg)
     model = build_model(cfg)
-    if weights:
-        checkpoint = torch.load(weights, map_location="cpu", weights_only=True)
+    if checkpoint:
         model.load_state_dict(checkpoint.get("model_state_dict", checkpoint))
     model.eval()
-    return model
+    return model, cfg

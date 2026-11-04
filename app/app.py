@@ -42,10 +42,11 @@ def load_settings():
 
 
 CFG, MODEL_CFG = load_settings()
+# A checkpoint's own config replaces MODEL_CFG, so input size and class count match the weights.
+MODEL, MODEL_CFG = load_model(MODEL_CFG, ROOT / CFG["weights"] if CFG["weights"] else None)
 CLASS_NAMES = load_class_names(APP_DIR / CFG["class_names"])
 if len(CLASS_NAMES) != MODEL_CFG["model"]["num_classes"]:
     raise ValueError(f"{len(CLASS_NAMES)} class names but the model has {MODEL_CFG['model']['num_classes']} outputs")
-MODEL = load_model(MODEL_CFG, ROOT / CFG["weights"] if CFG["weights"] else None)
 PREPROCESS = build_preprocess(MODEL_CFG["model"]["input_size"])
 
 

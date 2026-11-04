@@ -1,3 +1,4 @@
+import copy
 from pathlib import Path
 
 import pytest
@@ -14,7 +15,7 @@ NAMES = [f"class_{i}" for i in range(39)]
 
 @pytest.fixture
 def model(project_cfg):
-    return load_model(project_cfg)
+    return load_model(project_cfg)[0]
 
 
 @pytest.fixture
@@ -29,14 +30,26 @@ def test_load_model_builds_simple_cnn_in_eval_mode(model):
 
 @pytest.mark.parametrize("key", ["model_state_dict", None])
 def test_load_model_restores_weights(project_cfg, tmp_path, key):
-    trained = load_model(project_cfg)
+    trained, _ = load_model(project_cfg)
     state = trained.state_dict()
     path = tmp_path / "best.pt"
     torch.save({key: state, "epoch": 3} if key else state, path)
 
-    restored = load_model(project_cfg, path)
+    restored, _ = load_model(project_cfg, path)
     for name, tensor in restored.state_dict().items():
         assert torch.equal(tensor, state[name])
+
+
+def test_load_model_uses_config_saved_in_checkpoint(project_cfg, tmp_path):
+    trained_cfg = copy.deepcopy(project_cfg)
+    trained_cfg["model"]["channels"] = [8, 16]
+    trained, _ = load_model(trained_cfg)
+    path = tmp_path / "best.pt"
+    torch.save({"model_state_dict": trained.state_dict(), "config": trained_cfg}, path)
+
+    restored, cfg = load_model(project_cfg, path)
+    assert cfg["model"]["channels"] == [8, 16]
+    assert restored.state_dict().keys() == trained.state_dict().keys()
 
 
 @pytest.mark.parametrize("mode,size", [("RGB", (256, 256)), ("RGBA", (300, 200)), ("L", (64, 64))])
