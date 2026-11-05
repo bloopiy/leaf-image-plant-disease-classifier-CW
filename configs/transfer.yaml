@@ -1,29 +1,29 @@
-# TODO: hyperparameters (data, model, train, clearml)
-
-
-
-# Transfer learning (ResNet18) config.
-# Keep key names in line with configs/default.yaml where they overlap
-# (agree the train: keys with Swaraj, the data: keys with Aravind).
+# Transfer learning (ResNet18) config. Same key layout as default.yaml, so the
+# loaders, trainer, evaluation and app can all read either file.
+seed: 42
 
 data:
-  input_size: 224                       # ResNet18 expects ~224
-  normalize_mean: [0.485, 0.456, 0.406] # ImageNet stats, needed for pretrained weights
-  normalize_std: [0.229, 0.224, 0.225]
+  dataset:
+    id: DScomp380/plant_village
+  use_full_development_pool: false
+  prototype_fraction: 0.25
 
 model:
   name: resnet18
   num_classes: 39
   pretrained: true
   freeze_backbone: false                # true = train only the new fc layer
+  input_size: 224                       # under model: like default.yaml (the app reads model.input_size)
+  normalize_mean: [0.485, 0.456, 0.406] # ImageNet stats, needed for pretrained weights
+  normalize_std: [0.229, 0.224, 0.225]
 
 train:                                  # starting values, tune via ClearML sweeps
-  optimizer: adamw
+  optimizer: adamw                      # NOTE: fit() currently always uses Adam
   lr: 0.0001
   weight_decay: 0.01
   batch_size: 64
   epochs: 15
-  early_stopping_patience: 3
+  patience: 3                           # fit() reads "patience" (not early_stopping_patience)
 
 clearml:
   task_name: resnet18-transfer
