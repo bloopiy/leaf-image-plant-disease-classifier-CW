@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from torchvision.models import resnet18, ResNet18_Weights
 class ConvBlock(nn.Module):
     """Conv -> BatchNorm -> ReLU -> MaxPool -> Dropout2d
  
@@ -86,15 +87,39 @@ class SimpleCNN(nn.Module):
         return self.classifier(self.pool(self.features(x)))
 
 
-def build_transfer_model(num_classes):
-    # TODO: pretrained model fine-tuning
-    raise NotImplementedError
+def build_transfer_model(num_classes=39, pretrained=True, freeze_backbone=False):
+    """ResNet18 with a fresh num_classes-way head.
 
+    freeze_backbone=True trains only the new fc layer; False fine-tunes everything.
+    pretrained=False skips the weight download (used in tests).
+    """
+    weights = ResNet18_Weights.DEFAULT if pretrained else None
+    model = resnet18(weights=weights)
+    if freeze_backbone:
+        for p in model.parameters():
+            p.requires_grad = False
+    # Built after freezing, so the new head is always trainable
+    model.fc = nn.Linear(model.fc.in_features, num_classes)
+    return model
+
+def build_transfer_model_from_cfg(cfg):
+    """Build the transfer model from the loaded transfer.yaml."""
+    m = cfg["model"]
+    return build_transfer_model(
+        num_classes=m["num_classes"],
+        pretrained=m["pretrained"],
+        freeze_backbone=m["freeze_backbone"],
+    )
+
+def count_total_parameters(model):
+    """All parameters, frozen or not (count_parameters only counts trainable ones)."""
+    return sum(p.numel() for p in model.parameters())
 
 def build_model(cfg):
-    #Build the CNN from the loaded YAML config
     m = cfg["model"]
-    return SimpleCNN(
+    if m.get("name", "cnn") == "resnet18":
+        return build_transfer_model_from_cfg(cfg)
+    return SimpleCNN(...)   
         num_classes=m["num_classes"],
         in_channels=m["in_channels"],
         input_size=m["input_size"],
@@ -109,3 +134,5 @@ def build_model(cfg):
 def count_parameters(model):
     # Number of trainable parameters (reported per variant in the report)
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+
