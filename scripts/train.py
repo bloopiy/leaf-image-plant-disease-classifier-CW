@@ -185,12 +185,20 @@ def main():
 
     config_stem = Path(args.config).stem
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    # default.yaml uses task_name_prefix; transfer.yaml uses task_name.
+    clearml_cfg = cfg["clearml"]
+    prefix = (
+        clearml_cfg.get("task_name_prefix")
+        or clearml_cfg.get("task_name")
+        or "train"
+    )
+    tags = ["train", "real-data", config_stem] + list(
+        clearml_cfg.get("tags", [])
+    )
     task = Task.init(
-        project_name=cfg["clearml"]["project_name"],
-        task_name=(
-            f"{cfg['clearml']['task_name_prefix']}-{config_stem}-{timestamp}"
-        ),
-        tags=["train", "real-data", config_stem],
+        project_name=clearml_cfg.get("project_name", "PlantDisease-CW"),
+        task_name=f"{prefix}-{config_stem}-{timestamp}",
+        tags=tags,
         reuse_last_task_id=False,
         auto_connect_frameworks=False,
     )
