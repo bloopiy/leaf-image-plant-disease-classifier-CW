@@ -119,7 +119,7 @@ def build_model(cfg):
     m = cfg["model"]
     if m.get("name", "cnn") == "resnet18":
         return build_transfer_model_from_cfg(cfg)
-    return SimpleCNN(...)   
+    return SimpleCNN(
         num_classes=m["num_classes"],
         in_channels=m["in_channels"],
         input_size=m["input_size"],
