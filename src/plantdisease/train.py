@@ -4,6 +4,38 @@ import torch
 from torch import nn
 
 
+OPTIMIZERS = {
+    "adam": torch.optim.Adam,
+    "adamw": torch.optim.AdamW,
+}
+
+
+def _build_optimizer(model, train_cfg):
+    name = train_cfg.get("optimizer", "adamw")
+    if name not in OPTIMIZERS:
+        raise ValueError(
+            f"train.optimizer must be 'adam' or 'adamw', got {name!r}"
+        )
+    return OPTIMIZERS[name](
+        (p for p in model.parameters() if p.requires_grad),
+        lr=float(train_cfg["lr"]),
+        weight_decay=float(train_cfg.get("weight_decay", 0.0)),
+    )
+
+
+def _build_scheduler(optimizer, train_cfg, epochs):
+    name = train_cfg.get("scheduler", "none")
+    if name == "none":
+        return None
+    if name == "cosine":
+        return torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=epochs
+        )
+    raise ValueError(
+        f"train.scheduler must be 'none' or 'cosine', got {name!r}"
+    )
+
+
 def _run_epoch(model, loader, criterion, device, optimizer=None):
     training = optimizer is not None
     model.train(training)
@@ -47,10 +79,10 @@ def _run_epoch(model, loader, criterion, device, optimizer=None):
 
 
 def fit(model, train_loader, val_loader, cfg, device, logger=None):
-    """Train, save the best validation-loss checkpoint, and restore it."""
+    """Train, save the best validation-accuracy checkpoint, and restore it."""
     train_cfg = cfg["train"]
     epochs = int(train_cfg["epochs"])
-    patience = int(train_cfg.get("patience", 5))
+    patience = int(train_cfg.get("patience", 3))
 
     if epochs < 1 or patience < 1:
         raise ValueError("epochs and patience must both be positive.")
@@ -58,11 +90,8 @@ def fit(model, train_loader, val_loader, cfg, device, logger=None):
     device = torch.device(device)
     model = model.to(device)
 
-    optimizer = torch.optim.Adam(
-        (p for p in model.parameters() if p.requires_grad),
-        lr=float(train_cfg["lr"]),
-        weight_decay=float(train_cfg.get("weight_decay", 0.0)),
-    )
+    optimizer = _build_optimizer(model, train_cfg)
+    scheduler = _build_scheduler(optimizer, train_cfg, epochs)
     criterion = nn.CrossEntropyLoss()
 
     checkpoint_path = Path(
@@ -72,10 +101,15 @@ def fit(model, train_loader, val_loader, cfg, device, logger=None):
 
     history = []
     best_loss = float("inf")
+    best_accuracy = -1.0
     best_epoch = None
     bad_epochs = 0
 
     for epoch in range(1, epochs + 1):
+        # The scheduler is stepped at the end of the epoch, so this is the
+        # learning rate actually used for both passes.
+        current_lr = optimizer.param_groups[0]["lr"]
+
         train_loss, train_accuracy = _run_epoch(
             model, train_loader, criterion, device, optimizer
         )
@@ -97,6 +131,7 @@ def fit(model, train_loader, val_loader, cfg, device, logger=None):
                 ("loss", "validation", val_loss),
                 ("accuracy", "train", train_accuracy),
                 ("accuracy", "validation", val_accuracy),
+                ("lr", "train", current_lr),
             ):
                 logger.report_scalar(
                     title=title,
@@ -112,22 +147,39 @@ def fit(model, train_loader, val_loader, cfg, device, logger=None):
             f"val_accuracy={val_accuracy:.3f}"
         )
 
-        if val_loss < best_loss:
+        # Maximise validation accuracy; validation loss breaks ties.
+        improved = (
+            val_accuracy > best_accuracy
+            or (
+                val_accuracy == best_accuracy
+                and val_loss < best_loss
+            )
+        )
+
+        if improved:
+            best_accuracy = val_accuracy
             best_loss = val_loss
             best_epoch = epoch
             bad_epochs = 0
 
-            torch.save({
+            checkpoint = {
                 "epoch": epoch,
                 "model_state_dict": model.state_dict(),
                 "optimizer_state_dict": optimizer.state_dict(),
                 "val_loss": val_loss,
-                "config": cfg,
-            }, checkpoint_path)
+                "val_accuracy": val_accuracy,
+            }
+            if scheduler is not None:
+                checkpoint["scheduler_state_dict"] = scheduler.state_dict()
+            torch.save(checkpoint, checkpoint_path)
         else:
             bad_epochs += 1
-            if bad_epochs >= patience:
-                break
+
+        if scheduler is not None:
+            scheduler.step()
+
+        if bad_epochs >= patience:
+            break
 
     checkpoint = torch.load(
         checkpoint_path, map_location=device, weights_only=True
@@ -139,5 +191,6 @@ def fit(model, train_loader, val_loader, cfg, device, logger=None):
         "history": history,
         "best_epoch": best_epoch,
         "best_val_loss": best_loss,
+        "best_val_accuracy": best_accuracy,
         "checkpoint_path": str(checkpoint_path),
     }
