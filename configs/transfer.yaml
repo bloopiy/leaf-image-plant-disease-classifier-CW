@@ -18,12 +18,14 @@ model:
   normalize_std: [0.229, 0.224, 0.225]
 
 train:                                  # starting values, tune via ClearML sweeps
-  optimizer: adamw                      # NOTE: fit() currently always uses Adam
+  optimizer: adamw                      # adam | adamw (fit() reads this)
+  scheduler: none                       # none | cosine (optional sweep)
   lr: 0.0001
-  weight_decay: 0.01
+  weight_decay: 0.01                    # AdamW weight decay for fine-tuning
   batch_size: 64
   epochs: 15
   patience: 3                           # fit() reads "patience" (not early_stopping_patience)
+  checkpoint_path: checkpoints/resnet18-transfer/best.pt
 
 clearml:
   task_name: resnet18-transfer

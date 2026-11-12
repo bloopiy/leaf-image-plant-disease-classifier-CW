@@ -42,8 +42,11 @@ REQUIRED_KEYS = [
 ]
 # Names the "train" section may contain. fit() reads the first group; the
 # second group is used elsewhere or planned.
-FIT_READS = {"epochs", "lr", "weight_decay", "patience", "checkpoint_path"}
-USED_ELSEWHERE = {"batch_size", "optimizer"}
+FIT_READS = {
+    "epochs", "lr", "weight_decay", "patience", "checkpoint_path",
+    "optimizer", "scheduler",
+}
+USED_ELSEWHERE = {"batch_size"}
 
 
 def dig(cfg, path):
