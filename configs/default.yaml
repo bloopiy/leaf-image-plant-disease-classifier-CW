@@ -13,8 +13,21 @@ model:
   conv_dropout: 0.0        # Dropout2d after each conv block (0 = off)
   dense_dropout: 0.3       # Dropout after each hidden dense layer (0 = off)
  
-# TODO: train (Training lead)
-# TODO: clearml (Training lead)
+train:
+  epochs: 30
+  patience: 3
+  optimizer: adamw        # adam | adamw
+  scheduler: none         # none | cosine
+  lr: 0.001
+  weight_decay: 0.0001    # AdamW weight decay for the from-scratch CNN
+  batch_size: 32
+  checkpoint_path: checkpoints/simple-cnn/best.pt
+
+clearml:
+  project_name: PlantDisease-CW
+  task_name_prefix: simple-cnn
+  offline: false
+
 data:
   dataset:
     id: DScomp380/plant_village
