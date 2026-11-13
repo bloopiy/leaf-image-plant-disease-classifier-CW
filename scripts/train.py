@@ -6,7 +6,6 @@ Usage:
     python scripts/train.py --offline
 """
 import argparse
-import copy
 import json
 import sys
 from datetime import datetime
@@ -15,37 +14,16 @@ from pathlib import Path
 import torch
 import yaml
 from clearml import Task
-from torch.utils.data import DataLoader, Dataset
-from torchvision import transforms
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from plantdisease.data import load_and_split
+from plantdisease.data import load_and_split, make_loaders
 from plantdisease.models import build_model, count_parameters
 from plantdisease.train import fit
 from plantdisease.utils import get_device, load_config, set_seed
 
 REQUIRED_SECTIONS = ("model", "data", "train", "clearml")
-
-
-class HFImageDataset(Dataset):
-    """Wraps a Hugging Face split for PyTorch.
-
-    TODO: replace with the Data lead's transforms / make_loaders once
-    `data/transforms.py` is implemented. This is a minimal stand-in.
-    """
-
-    def __init__(self, hf_split, transform):
-        self.data = hf_split
-        self.transform = transform
-
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, idx):
-        item = self.data[idx]
-        return self.transform(item["image"].convert("RGB")), int(item["label"])
 
 
 def parse_args():
@@ -114,28 +92,69 @@ def build_config(args):
     return cfg
 
 
-def make_loader(hf_split, transform, batch_size, shuffle, seed, num_workers):
-    generator = torch.Generator().manual_seed(seed)
-    return DataLoader(
-        HFImageDataset(hf_split, transform),
-        batch_size=batch_size,
-        shuffle=shuffle,
-        num_workers=num_workers,
-        generator=generator if shuffle else None,
+def init_task(cfg, config_path):
+    """Create the ClearML task, named and tagged from the config."""
+    config_stem = Path(config_path).stem
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    # default.yaml uses task_name_prefix; transfer.yaml uses task_name.
+    clearml_cfg = cfg["clearml"]
+    prefix = (
+        clearml_cfg.get("task_name_prefix")
+        or clearml_cfg.get("task_name")
+        or "train"
+    )
+    tags = ["train", "real-data", config_stem] + list(
+        clearml_cfg.get("tags", [])
+    )
+    return Task.init(
+        project_name=clearml_cfg.get("project_name", "PlantDisease-CW"),
+        task_name=f"{prefix}-{config_stem}-{timestamp}",
+        tags=tags,
+        reuse_last_task_id=False,
+        auto_connect_frameworks=False,
     )
 
 
-def main():
-    args = parse_args()
-    try:
-        cfg = build_config(args)
-    except (ValueError, OSError) as error:
-        print(f"ERROR: {error}")
-        sys.exit(1)
+def to_plain(config):
+    """Copy a config through JSON, giving plain dicts and lists.
 
-    if args.offline or cfg["clearml"].get("offline", False):
-        Task.set_offline(True)
+    ClearML hands back its own dict wrapper, which yaml.safe_dump rejects.
+    """
+    return json.loads(json.dumps(config))
 
+
+def save_outputs(task, cfg, result, class_names):
+    """Write the run's files and upload them to ClearML as artifacts."""
+    output_dir = ROOT / "outputs" / "train" / task.id
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    history_path = output_dir / "history.json"
+    history_path.write_text(json.dumps(result, indent=2), encoding="utf-8")
+
+    config_path = output_dir / "config.yaml"
+    config_path.write_text(yaml.safe_dump(cfg, sort_keys=False), encoding="utf-8")
+
+    class_names_path = output_dir / "class_names.json"
+    class_names_path.write_text(json.dumps(class_names, indent=2), encoding="utf-8")
+
+    artifacts = {
+        "best_checkpoint": result["checkpoint_path"],
+        "training_history": str(history_path),
+        "run_config": str(config_path),
+        "class_names": str(class_names_path),
+    }
+    for name, path in artifacts.items():
+        uploaded = task.upload_artifact(
+            name=name,
+            artifact_object=path,
+            wait_on_upload=True,
+        )
+        if not uploaded:
+            raise RuntimeError(f"Artifact upload failed: {name}")
+
+
+def run_training(task, cfg, num_workers):
+    """Load the data, train the model and record the results."""
     set_seed(cfg["seed"])
     device = get_device()
     gpu_name = (
@@ -143,7 +162,6 @@ def main():
     )
     print(f"Device: {device} | GPU: {gpu_name}")
     print(
-        f"Config: {args.config} | "
         f"epochs={cfg['train']['epochs']} | "
         f"batch_size={cfg['train']['batch_size']}"
     )
@@ -158,100 +176,46 @@ def main():
             f"dataset has {len(class_names)} classes but config "
             f"model.num_classes={cfg['model']['num_classes']}"
         )
-    print(f"Classes: {len(class_names)}")
-
-    size = cfg["model"]["input_size"]
-    # TODO: replace with the Data lead's transforms once data/transforms.py
-    # exists. This resize + ToTensor pair is a temporary stand-in.
-    transform = transforms.Compose([
-        transforms.Resize((size, size)),
-        transforms.ToTensor(),
-    ])
 
     # The permanent test set is deliberately NOT used here; it is reserved
-    # for the final evaluation.
-    batch_size = cfg["train"]["batch_size"]
-    train_loader = make_loader(
-        data["train"], transform, batch_size, True, cfg["seed"],
-        args.num_workers,
-    )
-    val_loader = make_loader(
-        data["validation"], transform, batch_size, False, cfg["seed"],
-        args.num_workers,
-    )
+    # for the final evaluation. make_loaders leaves it out by default.
+    loaders = make_loaders(cfg, cfg["seed"], num_workers=num_workers, splits=data)
 
     model = build_model(cfg)
     print(f"Trainable parameters: {count_parameters(model):,}")
 
-    config_stem = Path(args.config).stem
-    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    # default.yaml uses task_name_prefix; transfer.yaml uses task_name.
-    clearml_cfg = cfg["clearml"]
-    prefix = (
-        clearml_cfg.get("task_name_prefix")
-        or clearml_cfg.get("task_name")
-        or "train"
+    result = fit(
+        model,
+        loaders["train"],
+        loaders["validation"],
+        cfg,
+        device,
+        logger=task.get_logger(),
     )
-    tags = ["train", "real-data", config_stem] + list(
-        clearml_cfg.get("tags", [])
-    )
-    task = Task.init(
-        project_name=clearml_cfg.get("project_name", "PlantDisease-CW"),
-        task_name=f"{prefix}-{config_stem}-{timestamp}",
-        tags=tags,
-        reuse_last_task_id=False,
-        auto_connect_frameworks=False,
-    )
+    save_outputs(task, cfg, result, class_names)
 
+    print(f"Task ID: {task.id}")
+    print(f"Best epoch: {result['best_epoch']}")
+    print(f"Best val accuracy: {result['best_val_accuracy']:.3f}")
+
+
+def main():
+    args = parse_args()
     try:
-        task.connect(copy.deepcopy(cfg))
+        cfg = build_config(args)
+    except (ValueError, OSError) as error:
+        print(f"ERROR: {error}")
+        sys.exit(1)
 
-        result = fit(
-            model,
-            train_loader,
-            val_loader,
-            cfg,
-            device,
-            logger=task.get_logger(),
-        )
+    if args.offline or cfg["clearml"].get("offline", False):
+        Task.set_offline(True)
 
-        output_dir = ROOT / "outputs" / "train"
-        output_dir.mkdir(parents=True, exist_ok=True)
-
-        history_path = output_dir / "history.json"
-        history_path.write_text(
-            json.dumps(result, indent=2), encoding="utf-8"
-        )
-
-        config_path = output_dir / "config.yaml"
-        config_path.write_text(
-            yaml.safe_dump(cfg, sort_keys=False),
-            encoding="utf-8",
-        )
-
-        (output_dir / "task_id.txt").write_text(
-            task.id, encoding="utf-8"
-        )
-
-        artifacts = {
-            "best_checkpoint": result["checkpoint_path"],
-            "training_history": str(history_path),
-            "run_config": str(config_path),
-        }
-
-        for name, path in artifacts.items():
-            uploaded = task.upload_artifact(
-                name=name,
-                artifact_object=path,
-                wait_on_upload=True,
-            )
-            if not uploaded:
-                raise RuntimeError(f"Artifact upload failed: {name}")
-
-        print(f"Task ID: {task.id}")
-        print(f"Best epoch: {result['best_epoch']}")
-        print(f"Best val accuracy: {result['best_val_accuracy']:.3f}")
-
+    task = init_task(cfg, args.config)
+    try:
+        # Use the connected config: values edited in ClearML (a cloned task or a
+        # hyperparameter sweep) come back here and take effect.
+        cfg = to_plain(task.connect(cfg, name="config"))
+        run_training(task, cfg, args.num_workers)
     except BaseException:
         try:
             task.mark_failed()
