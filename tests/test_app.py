@@ -22,7 +22,7 @@ def model(project_cfg):
 
 @pytest.fixture
 def preprocess(project_cfg):
-    return build_preprocess(project_cfg["model"]["input_size"])
+    return build_preprocess(project_cfg["model"])
 
 
 def test_load_model_builds_simple_cnn_in_eval_mode(model):

@@ -47,7 +47,7 @@ MODEL, MODEL_CFG = load_model(MODEL_CFG, ROOT / CFG["weights"] if CFG["weights"]
 CLASS_NAMES = load_class_names(APP_DIR / CFG["class_names"])
 if len(CLASS_NAMES) != MODEL_CFG["model"]["num_classes"]:
     raise ValueError(f"{len(CLASS_NAMES)} class names but the model has {MODEL_CFG['model']['num_classes']} outputs")
-PREPROCESS = build_preprocess(MODEL_CFG["model"]["input_size"])
+PREPROCESS = build_preprocess(MODEL_CFG["model"])
 
 
 def classify(image):

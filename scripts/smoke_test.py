@@ -25,13 +25,11 @@ import tempfile
 from pathlib import Path
 
 import torch
-from torch.utils.data import DataLoader, Dataset
-from torchvision import transforms
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from plantdisease.data import load_and_split
+from plantdisease.data import load_and_split, make_loaders
 from plantdisease.evaluate import evaluate
 from plantdisease.models import build_model, count_parameters
 from plantdisease.train import fit
@@ -56,25 +54,6 @@ def check(condition, message):
 
 def step(text):
     print(f"\n[{text}]")
-
-
-class HFImageDataset(Dataset):
-    """Wraps a Hugging Face split for PyTorch.
-
-    TODO: replace with the Data lead's transforms / make_loaders once
-    `data/transforms.py` is implemented. This is a minimal stand-in.
-    """
-
-    def __init__(self, hf_split, transform):
-        self.data = hf_split
-        self.transform = transform
-
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, idx):
-        item = self.data[idx]
-        return self.transform(item["image"].convert("RGB")), int(item["label"])
 
 
 def parse_args():
@@ -126,30 +105,10 @@ def build_config(args, checkpoint_path):
     for key, value in TRAIN_DEFAULTS.items():
         train_cfg.setdefault(key, value)
     train_cfg["epochs"] = args.epochs
+    train_cfg["batch_size"] = args.batch_size
     train_cfg["checkpoint_path"] = str(checkpoint_path)
     cfg.setdefault("seed", 42)
     return cfg
-
-
-def build_transform(cfg):
-    m = cfg["model"]
-    size = m["input_size"]
-    steps = [transforms.Resize((size, size)), transforms.ToTensor()]
-    mean, std = m.get("normalize_mean"), m.get("normalize_std")
-    if mean and std:
-        steps.append(transforms.Normalize(mean, std))
-    return transforms.Compose(steps), bool(mean and std)
-
-
-def make_loader(hf_split, transform, args, shuffle, seed):
-    generator = torch.Generator().manual_seed(seed)
-    return DataLoader(
-        HFImageDataset(hf_split, transform),
-        batch_size=args.batch_size,
-        shuffle=shuffle,
-        num_workers=args.num_workers,
-        generator=generator if shuffle else None,
-    )
 
 
 def run(args, checkpoint_path):
@@ -185,12 +144,12 @@ def run(args, checkpoint_path):
     check(top_label < m["num_classes"], f"label {top_label} out of range")
     print(f"  {len(class_names)} classes, e.g. {class_names[:3]}")
 
-    step("3/6 loaders (temporary transform from the config)")
-    tf, normalised = build_transform(cfg)
+    step("3/6 loaders (shared transforms and make_loaders)")
+    normalised = "normalize_mean" in m
     size = m["input_size"]
-    train_loader = make_loader(data["train"], tf, args, True, cfg["seed"])
-    val_loader = make_loader(data["validation"], tf, args, False, cfg["seed"])
-    test_loader = make_loader(data["prototype_test"], tf, args, False, cfg["seed"])
+    loaders = make_loaders(cfg, cfg["seed"], num_workers=args.num_workers, splits=data)
+    train_loader, val_loader = loaders["train"], loaders["validation"]
+    test_loader = loaders["prototype_test"]
     images, labels = next(iter(train_loader))
     in_channels = m.get("in_channels", 3)
     check(
