@@ -1,5 +1,6 @@
 import argparse
 import importlib.util
+import json
 from pathlib import Path
 
 import pytest
@@ -388,30 +389,28 @@ def test_equal_accuracy_prefers_lower_loss(tmp_path, monkeypatch):
     assert checkpoint["val_accuracy"] == pytest.approx(0.5)
 
 
-def test_checkpoint_has_no_config_and_loads_weights_only(
+def test_checkpoint_stores_config_as_json_and_loads_weights_only(
     tmp_path, monkeypatch
 ):
     fake_epochs(monkeypatch, [(0.5, 0.75)])
+    cfg = train_cfg(tmp_path)
 
-    training.fit(
-        torch.nn.Linear(1, 2),
-        [],
-        [],
-        train_cfg(tmp_path),
-        "cpu",
-    )
+    training.fit(torch.nn.Linear(1, 2), [], [], cfg, "cpu")
 
     checkpoint = torch.load(
         tmp_path / "best.pt", map_location="cpu", weights_only=True
     )
-    assert "config" not in checkpoint
+    assert "config" not in checkpoint  # a dict could break weights_only loading
     assert set(checkpoint) == {
         "epoch",
         "model_state_dict",
         "optimizer_state_dict",
         "val_loss",
         "val_accuracy",
+        "config_json",
     }
+    assert isinstance(checkpoint["config_json"], str)
+    assert json.loads(checkpoint["config_json"]) == cfg
     assert checkpoint["val_accuracy"] == pytest.approx(0.75)
 
 

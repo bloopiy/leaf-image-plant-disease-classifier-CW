@@ -1,15 +1,16 @@
 """Preprocess an image and return the top-k class probabilities."""
 import torch
-from torchvision import transforms
+
+from plantdisease.data.transforms import build_eval_transform
 
 
-def build_preprocess(image_size):
-    """Resize and normalise the same way as at training time."""
-    # TODO: replace with plantdisease.data.build_transforms(image_size, augment=False)
-    return transforms.Compose([
-        transforms.Resize((image_size, image_size)),
-        transforms.ToTensor(),
-    ])
+def build_preprocess(model_cfg):
+    """The evaluation transform of the model's config, shared with training.
+
+    `model_cfg` is the `model` section: input_size and, if used in training,
+    normalize_mean / normalize_std.
+    """
+    return build_eval_transform(model_cfg)
 
 
 def format_label(name):
