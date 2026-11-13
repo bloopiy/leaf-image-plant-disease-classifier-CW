@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import torch
@@ -168,6 +169,9 @@ def fit(model, train_loader, val_loader, cfg, device, logger=None):
                 "optimizer_state_dict": optimizer.state_dict(),
                 "val_loss": val_loss,
                 "val_accuracy": val_accuracy,
+                # A JSON string, not a dict, so weights_only loading still works
+                # and the weights carry the config they were trained with.
+                "config_json": json.dumps(cfg, default=str),
             }
             if scheduler is not None:
                 checkpoint["scheduler_state_dict"] = scheduler.state_dict()

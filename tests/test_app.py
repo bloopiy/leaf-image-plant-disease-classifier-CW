@@ -1,4 +1,5 @@
 import copy
+import json
 from pathlib import Path
 
 import pytest
@@ -8,6 +9,7 @@ from PIL import Image
 from inference import build_preprocess, format_label, predict_topk
 from model_loader import load_class_names, load_model
 from plantdisease.models import SimpleCNN
+from plantdisease.utils import load_config
 
 CLASS_NAMES_PATH = Path(__file__).resolve().parents[1] / "app" / "class_names.json"
 NAMES = [f"class_{i}" for i in range(39)]
@@ -38,6 +40,29 @@ def test_load_model_restores_weights(project_cfg, tmp_path, key):
     restored, _ = load_model(project_cfg, path)
     for name, tensor in restored.state_dict().items():
         assert torch.equal(tensor, state[name])
+
+
+def test_load_model_uses_config_json_saved_by_the_trainer(project_cfg, tmp_path):
+    trained_cfg = copy.deepcopy(project_cfg)
+    trained_cfg["model"]["channels"] = [8, 16]
+    trained, _ = load_model(trained_cfg)
+    path = tmp_path / "best.pt"
+    torch.save(
+        {"model_state_dict": trained.state_dict(), "config_json": json.dumps(trained_cfg)},
+        path,
+    )
+
+    restored, cfg = load_model(project_cfg, path)
+    assert cfg["model"]["channels"] == [8, 16]
+    assert restored.state_dict().keys() == trained.state_dict().keys()
+
+
+def test_load_model_builds_a_resnet_without_downloading_weights(tmp_path):
+    cfg = load_config(Path(__file__).resolve().parents[1] / "configs" / "transfer.yaml")
+    assert cfg["model"]["pretrained"] is True  # the shipped config asks for a download
+    model, used_cfg = load_model(cfg)
+    assert used_cfg["model"]["pretrained"] is False
+    assert type(model).__name__ == "ResNet"
 
 
 def test_load_model_uses_config_saved_in_checkpoint(project_cfg, tmp_path):

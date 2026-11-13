@@ -134,9 +134,13 @@ def test_trained_model_survives_save_load_and_evaluation(kind, tmp_path):
     assert direct["confusion_matrix"].sum() == direct["num_samples"] == 32
     assert 0 <= direct["accuracy"] <= direct["top5_accuracy"] <= 1
 
-    reloaded, loaded_cfg = reload_like_the_app(cfg, checkpoint)
+    # Hand the app the WRONG fallback config (default.yaml). The checkpoint's
+    # own config must win, otherwise a ResNet checkpoint would be built as a CNN.
+    fallback = load_config(ROOT / "configs" / "default.yaml")
+    reloaded, loaded_cfg = reload_like_the_app(fallback, checkpoint)
     assert loaded_cfg["model"]["num_classes"] == NUM_CLASSES
     assert loaded_cfg["model"]["input_size"] == cfg["model"]["input_size"]
+    assert type(reloaded) is type(model)
 
     again = evaluate(reloaded, val_loader, device, num_classes=NUM_CLASSES)
     assert np.array_equal(
