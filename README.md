@@ -4,7 +4,7 @@ Plant disease classification from leaf images (PlantVillage). PyTorch, ClearML, 
 
 ## Team
 - Team: TODO
-- Members: Kaveen Ovitigala (K25103019), Zaid Mukthar (K25091896), Aravindhakshan Sriram (k25038743), Amir Hoque (k23157382), Swaraj Singh (k24028164), Adam Abdelmeguid (k25055046)
+- Members: TODO (add as the assignment requires)
 
 ## Links
 - Hugging Face Space: TODO
@@ -40,21 +40,43 @@ Enter credentials locally. Never commit credentials or clearml.conf.
 
 ## Usage
 
-Run the local tests:
+Run the offline tests (no network, no ClearML account needed):
 
 ```bash
-.\.venv\Scripts\python.exe -m pytest -q
+python -m pytest -m "not real_data" -q
 ```
 
-Run the synthetic training-and-tracking smoke test:
+Run the full suite, which also downloads the Hugging Face dataset:
 
 ```bash
-.\.venv\Scripts\python.exe scripts/smoke_train.py
+python -m pytest -q
 ```
 
-This creates a ClearML experiment with configuration, training/validation
-curves, checkpoint, history and script artifacts.
+Check the whole pipeline on a small slice of the real data:
 
-The smoke test uses artificial dark/bright images. Its accuracy is not
-PlantVillage performance. Real-data training still requires integration
-with the project model and data-loading modules.
+```bash
+python scripts/smoke_test.py --config configs/default.yaml
+python scripts/smoke_test.py --config configs/transfer.yaml
+```
+
+### Experiments (ClearML)
+
+```bash
+python scripts/prepare_data.py                                  # split sizes, label plots, ClearML Dataset
+python scripts/train.py --config configs/default.yaml           # CNN from scratch
+python scripts/train.py --config configs/transfer.yaml          # ResNet18 transfer
+python scripts/evaluate.py --task-id <training task id>         # prototype_test
+python scripts/evaluate.py --task-id <id> --split permanent_test --final   # once, for the chosen model
+```
+
+Add `--offline` to any script to run without a ClearML account. The permanent
+test set is only used with `--final`.
+
+### App
+
+```bash
+python app/app.py
+```
+
+The app reads the configuration saved inside the checkpoint, so it works for
+both models without extra settings.
