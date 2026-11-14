@@ -1,6 +1,5 @@
-"""Data loading and splitting utilities for plant disease classification."""
+"""Public data-loading API for downstream training code."""
 
-from .dataset import load_plant_dataset
-from .splits import load_and_split
+from .loaders import make_loaders
 
-__all__ = ["load_plant_dataset", "load_and_split"]
+__all__ = ["make_loaders"]

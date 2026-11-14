@@ -20,7 +20,7 @@ train:
   scheduler: none         # none | cosine
   lr: 0.001
   weight_decay: 0.0001    # AdamW weight decay for the from-scratch CNN
-  batch_size: 32
+  batch_size: ${data.loaders.batch_size}
   checkpoint_path: checkpoints/simple-cnn/best.pt
 
 clearml:
@@ -31,6 +31,22 @@ clearml:
 data:
   dataset:
     id: DScomp380/plant_village
-  use_full_development_pool: false
-  prototype_fraction: 0.25
-  image_size: 128
+  use_full_development_pool: false # use the full development pool for training (true) or a subset defined by prototype_fraction (false)
+  prototype_fraction: 0.25 # subset of the development pool used for initial training
+  image_size: 128 # square input resolution fed to the CNN
+  splits:
+    train: 0.7
+    val: 0.15
+    test: 0.15
+  transformations:
+    augment:
+      brightness: 0.2 # brightness factor for augmentation
+      saturation: 0.2 # saturation factor for augmentation
+      hue: 0.1        # hue factor for augmentation
+      contrast: 0.2    # contrast factor for augmentation
+      degrees: 15      # degrees for random rotation augmentation
+      flip_prob: 0.5     # probability of random flip augmentation
+  loaders:
+    num_workers: 4 # number of workers for data loading
+    pin_memory: true # pin memory for data loading
+    batch_size: 32  # batch size for data loading

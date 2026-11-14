@@ -1,6 +1,6 @@
 """Data loaders for the CNN model"""
 
-from datasets import DataLoader
+from torch.utils.data import DataLoader
 from .splits import load_and_split
 from .transforms import build_transform_pipeline
 
@@ -54,8 +54,10 @@ def make_loaders(cfg, seed):
         shuffle=False
     )
 
-    return train_loader, validation_loader, prototype_test_loader, permanent_test_loader
-
-
-
+    return {
+        "train": train_loader,
+        "validation": validation_loader,
+        "prototype_test": prototype_test_loader,
+        "permanent_test": permanent_test_loader
+    }
 
