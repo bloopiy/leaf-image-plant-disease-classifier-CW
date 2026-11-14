@@ -5,7 +5,7 @@ seed: 42
 model:
   num_classes: 39
   in_channels: 3
-  input_size: 128          # square input resolution fed to the CNN
+  input_size: ${data.image_size} # square input resolution fed to the CNN
   channels: [32, 64, 128]  # one entry per conv block; depth = len(channels)
   dense_units: [128]       # hidden dense layers in the head; [] = single linear layer
   pooling: flatten         # flatten | global_avg
@@ -33,3 +33,4 @@ data:
     id: DScomp380/plant_village
   use_full_development_pool: false
   prototype_fraction: 0.25
+  image_size: 128
