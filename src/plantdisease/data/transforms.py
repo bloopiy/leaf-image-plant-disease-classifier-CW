@@ -29,23 +29,22 @@ def normalise_image():
 
     return transforms.ToTensor()
 
+def to_rgb(image):
+    """Convert an image to RGB."""
+
+    return image.convert("RGB")
+
 def build_transform_pipeline(cfg):
     """Build a complete transform pipeline for image preprocessing and augmentation."""
 
-    if cfg["data"]["transformations"].get("resize", True):
-        resize = resize_image(cfg["data"]["image_size"])
-    else:
-        resize = transforms.Lambda(lambda x: x)
-
+    resize = resize_image(cfg["data"]["image_size"])
     augment = augment_image(cfg)
     tensor = normalise_image()
 
-    train_transform = transforms.Compose([resize, augment, tensor])
-    eval_transform = transforms.Compose([resize, tensor])
+    train_transform = transforms.Compose([to_rgb, resize, augment, tensor])
+    eval_transform = transforms.Compose([to_rgb, resize, tensor])
 
     return {"train": train_transform, "eval": eval_transform}
-
-
 
 
 

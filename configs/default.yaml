@@ -20,7 +20,7 @@ train:
   scheduler: none         # none | cosine
   lr: 0.001
   weight_decay: 0.0001    # AdamW weight decay for the from-scratch CNN
-  batch_size: ${data.loaders.batch_size}
+  batch_size: 32
   checkpoint_path: checkpoints/simple-cnn/best.pt
 
 clearml:

@@ -10,17 +10,28 @@ def _resolve_split_config(cfg):
 
     data_cfg = cfg.get("data", {}) if isinstance(cfg, dict) else {}
     split_cfg = data_cfg.get("splits", {})
-    train_frac = float(split_cfg.get("train", 0.70))
-    val_frac = float(split_cfg.get("val", 0.15))
-    test_frac = float(split_cfg.get("test", 0.15))
+    train_frac, val_frac, test_frac = _validated_split_ratios(
+        float(split_cfg.get("train", 0.70)),
+        float(split_cfg.get("val", 0.15)),
+        float(split_cfg.get("test", 0.15)),
+        "data.splits",
+    )
+    return {"train": train_frac, "val": val_frac, "test": test_frac}
+
+
+def _validated_split_ratios(train_frac, val_frac, test_frac, name):
+    """Validate positive finite split ratios that sum to one."""
+    ratios = (train_frac, val_frac, test_frac)
+    if any(not math.isfinite(ratio) or ratio <= 0 for ratio in ratios):
+        raise ValueError(f"{name} ratios must all be positive finite numbers.")
+
     total = train_frac + val_frac + test_frac
     if not math.isclose(total, 1.0, rel_tol=0.0, abs_tol=1e-8):
         raise ValueError(
-            "data.splits must sum to 1.0; "
+            f"{name} must sum to 1.0; "
             f"got train={train_frac}, val={val_frac}, test={test_frac}"
         )
-
-    return {"train": train_frac, "val": val_frac, "test": test_frac}
+    return ratios
 
 
 def create_permanent_holdout(dataset: Dataset, seed: int, test_fraction: float = 0.15) -> tuple[Dataset, Dataset]:
@@ -61,15 +72,12 @@ def create_development_splits(dataset: Dataset, seed: int, split_cfg: dict | Non
     if split_cfg is None:
         split_cfg = {"train": 0.70, "val": 0.15, "test": 0.15}
 
-    train_frac = float(split_cfg["train"])
-    val_frac = float(split_cfg["val"])
-    test_frac = float(split_cfg["test"])
-    total = train_frac + val_frac + test_frac
-    if not math.isclose(total, 1.0, rel_tol=0.0, abs_tol=1e-8):
-        raise ValueError(
-            "split_cfg must sum to 1.0; "
-            f"got train={train_frac}, val={val_frac}, test={test_frac}"
-        )
+    train_frac, val_frac, test_frac = _validated_split_ratios(
+        float(split_cfg["train"]),
+        float(split_cfg["val"]),
+        float(split_cfg["test"]),
+        "split_cfg",
+    )
 
     train_and_holdout = dataset.train_test_split(
         test_size=1.0 - train_frac,
