@@ -5,7 +5,7 @@ exactly like training did. Settings come from the config:
 
     model.input_size                      resize target (square)
     model.normalize_mean / normalize_std  optional, set both or neither
-    data.augmentation                     training-only, see build_train_transform
+    data.transformations.augment          training-only, see build_train_transform
 """
 from torchvision import transforms
 
@@ -37,36 +37,41 @@ def build_eval_transform(model_cfg):
     return _finish([transforms.Resize((size, size))], model_cfg)
 
 
-def build_train_transform(model_cfg, augmentation_cfg=None):
+def build_train_transform(model_cfg, augment_cfg=None):
     """The evaluation transform with random augmentation added. Training only.
 
-    `augmentation_cfg` is the data.augmentation section, for example:
+    `augment_cfg` is the data.transformations.augment section, for example:
 
-        enabled: true
-        rotation_degrees: 15
+        flip_prob: 0.5
+        degrees: 15
         brightness: 0.2
+        contrast: 0.2
         saturation: 0.2
-        blur_probability: 0.2
+        hue: 0.1
+        blur_probability: 0.2     # optional, default 0 (off)
+        enabled: true             # optional, default true when the section exists
 
-    With `enabled` false or no section this equals the evaluation transform,
+    With no section, or `enabled: false`, this equals the evaluation transform,
     which is what the "augmentation off" experiments use.
     """
-    aug = augmentation_cfg or {}
-    if not aug.get("enabled", False):
+    aug = augment_cfg
+    if not aug or not aug.get("enabled", True):
         return build_eval_transform(model_cfg)
 
     size = model_cfg["input_size"]
     steps = [
         transforms.Resize((size, size)),
-        transforms.RandomHorizontalFlip(),
-        transforms.RandomRotation(aug.get("rotation_degrees", 15)),
+        transforms.RandomHorizontalFlip(p=aug.get("flip_prob", 0.5)),
+        transforms.RandomRotation(aug.get("degrees", 15)),
         transforms.ColorJitter(
             brightness=aug.get("brightness", 0.2),
+            contrast=aug.get("contrast", 0.2),
             saturation=aug.get("saturation", 0.2),
-        ),
-        transforms.RandomApply(
-            [transforms.GaussianBlur(kernel_size=5, sigma=(0.1, 1.5))],
-            p=aug.get("blur_probability", 0.2),
+            hue=aug.get("hue", 0.0),
         ),
     ]
+    blur = aug.get("blur_probability", 0.0)
+    if blur > 0:
+        steps.append(transforms.RandomApply(
+            [transforms.GaussianBlur(kernel_size=5, sigma=(0.1, 1.5))], p=blur))
     return _finish(steps, model_cfg)

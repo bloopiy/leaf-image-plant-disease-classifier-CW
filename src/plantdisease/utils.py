@@ -14,7 +14,13 @@ def load_config(path):
         raise FileNotFoundError(f"Config file not found: {path}")
     with open(path) as f:
         cfg = yaml.safe_load(f)
-    return cfg if cfg is not None else {}
+    cfg = cfg if cfg is not None else {}
+    if (
+        cfg.get("model", {}).get("input_size") == "${data.image_size}"
+        and "image_size" in cfg.get("data", {})
+    ):
+        cfg["model"]["input_size"] = cfg["data"]["image_size"]
+    return cfg
 
 
 def set_seed(seed):

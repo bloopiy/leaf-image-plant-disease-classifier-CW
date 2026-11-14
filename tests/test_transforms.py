@@ -7,8 +7,8 @@ from plantdisease.data.transforms import build_eval_transform, build_train_trans
 
 MODEL_CFG = {"input_size": 32}
 NORMALISED_CFG = {"input_size": 32, "normalize_mean": [0.5, 0.5, 0.5], "normalize_std": [0.5, 0.5, 0.5]}
-AUGMENTATION = {"enabled": True, "rotation_degrees": 15, "brightness": 0.2,
-                "saturation": 0.2, "blur_probability": 0.5}
+AUGMENTATION = {"enabled": True, "flip_prob": 0.5, "degrees": 15, "brightness": 0.2,
+                "contrast": 0.2, "saturation": 0.2, "hue": 0.1, "blur_probability": 0.5}
 
 
 def noise_image(size=(64, 48)):

@@ -10,7 +10,7 @@ from plantdisease.data.transforms import build_eval_transform
 CFG = {
     "model": {"input_size": 16},
     "train": {"batch_size": 4},
-    "data": {"augmentation": {"enabled": True, "blur_probability": 0.0}},
+    "data": {"transformations": {"augment": {"enabled": True}}},
 }
 
 

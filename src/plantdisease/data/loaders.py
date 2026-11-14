@@ -21,11 +21,15 @@ class HFImageDataset(Dataset):
         return self.transform(item["image"].convert("RGB")), int(item["label"])
 
 
-def make_loaders(cfg, seed, num_workers=0, splits=None, include_permanent_test=False):
+def make_loaders(cfg, seed, num_workers=None, splits=None, include_permanent_test=False):
     """Return {"train", "validation", "prototype_test"} DataLoaders.
 
-    Training uses augmentation (if data.augmentation.enabled); every other
+    Training uses augmentation (data.transformations.augment); every other
     loader uses the plain evaluation transform and keeps the dataset order.
+
+    Batch size comes from train.batch_size (the one setting the CLI and ClearML
+    override). num_workers and pin_memory come from data.loaders unless
+    `num_workers` is passed explicitly.
 
     Pass `splits` (the result of load_and_split) to avoid loading twice.
     `permanent_test` is only included when `include_permanent_test` is true:
@@ -34,7 +38,13 @@ def make_loaders(cfg, seed, num_workers=0, splits=None, include_permanent_test=F
     splits = splits if splits is not None else load_and_split(cfg, seed)
     model_cfg = cfg["model"]
     batch_size = cfg["train"]["batch_size"]
-    train_tf = build_train_transform(model_cfg, cfg.get("data", {}).get("augmentation"))
+    data_cfg = cfg.get("data", {})
+    loader_cfg = data_cfg.get("loaders", {})
+    if num_workers is None:
+        num_workers = loader_cfg.get("num_workers", 0)
+    pin_memory = bool(loader_cfg.get("pin_memory", False)) and torch.cuda.is_available()
+    augment_cfg = data_cfg.get("transformations", {}).get("augment")
+    train_tf = build_train_transform(model_cfg, augment_cfg)
     eval_tf = build_eval_transform(model_cfg)
 
     def loader(name, transform, shuffle):
@@ -44,6 +54,7 @@ def make_loaders(cfg, seed, num_workers=0, splits=None, include_permanent_test=F
             batch_size=batch_size,
             shuffle=shuffle,
             num_workers=num_workers,
+            pin_memory=pin_memory,
             generator=generator,
         )
 

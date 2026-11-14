@@ -7,12 +7,16 @@ data:
     id: DScomp380/plant_village
   use_full_development_pool: false
   prototype_fraction: 0.25              # keep at 0.10 or more: tiny fractions break the stratified split
-  augmentation:                         # applied to training images only
-    enabled: true
-    rotation_degrees: 15
-    brightness: 0.2
-    saturation: 0.2
-    blur_probability: 0.2
+  transformations:
+    augment:                            # applied to training images only
+      enabled: true
+      flip_prob: 0.5
+      degrees: 15
+      brightness: 0.2
+      contrast: 0.2
+      saturation: 0.2
+      hue: 0.1
+      blur_probability: 0.2
 
 model:
   name: resnet18

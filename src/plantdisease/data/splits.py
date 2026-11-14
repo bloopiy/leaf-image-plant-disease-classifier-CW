@@ -1,12 +1,47 @@
-from datasets import Dataset, DatasetDict
+import math
+
+from datasets import Dataset
 
 from .dataset import load_plant_dataset
 
-def create_permanent_holdout(dataset: Dataset, seed: int) -> tuple[Dataset, Dataset]:
-    """Return the 85% development pool and stratified 15% permanent test holdout."""
+
+def _resolve_split_config(cfg):
+    """Return the configured train/validation/test split ratios with safe defaults."""
+
+    data_cfg = cfg.get("data", {}) if isinstance(cfg, dict) else {}
+    split_cfg = data_cfg.get("splits", {})
+    train_frac, val_frac, test_frac = _validated_split_ratios(
+        float(split_cfg.get("train", 0.70)),
+        float(split_cfg.get("val", 0.15)),
+        float(split_cfg.get("test", 0.15)),
+        "data.splits",
+    )
+    return {"train": train_frac, "val": val_frac, "test": test_frac}
+
+
+def _validated_split_ratios(train_frac, val_frac, test_frac, name):
+    """Validate positive finite split ratios that sum to one."""
+    ratios = (train_frac, val_frac, test_frac)
+    if any(not math.isfinite(ratio) or ratio <= 0 for ratio in ratios):
+        raise ValueError(f"{name} ratios must all be positive finite numbers.")
+
+    total = train_frac + val_frac + test_frac
+    if not math.isclose(total, 1.0, rel_tol=0.0, abs_tol=1e-8):
+        raise ValueError(
+            f"{name} must sum to 1.0; "
+            f"got train={train_frac}, val={val_frac}, test={test_frac}"
+        )
+    return ratios
+
+
+def create_permanent_holdout(dataset: Dataset, seed: int, test_fraction: float = 0.15) -> tuple[Dataset, Dataset]:
+    """Return the development pool and a stratified permanent test holdout."""
+
+    if not 0 < test_fraction < 1:
+        raise ValueError("test_fraction must be in the range (0, 1).")
 
     outer_split = dataset.train_test_split(
-        test_size=0.15,
+        test_size=test_fraction,
         seed=seed,
         stratify_by_column="label",
     )
@@ -14,7 +49,7 @@ def create_permanent_holdout(dataset: Dataset, seed: int) -> tuple[Dataset, Data
     return outer_split["train"], outer_split["test"]
 
 
-def select_prototype_subset(    dataset: Dataset,fraction: float,seed: int) -> Dataset:
+def select_prototype_subset(dataset: Dataset, fraction: float, seed: int) -> Dataset:
     """Return a seeded, stratified fraction of the development pool."""
 
     if not 0 < fraction <= 1:
@@ -31,16 +66,28 @@ def select_prototype_subset(    dataset: Dataset,fraction: float,seed: int) -> D
     return subset_split["train"]
 
 
-def create_development_splits(dataset: Dataset, seed: int) -> tuple[Dataset, Dataset, Dataset]:
-    """Return stratified 70/15/15 train, validation, and prototype-test splits."""
+def create_development_splits(dataset: Dataset, seed: int, split_cfg: dict | None = None) -> tuple[Dataset, Dataset, Dataset]:
+    """Return train, validation, and test splits using configured ratios."""
+
+    if split_cfg is None:
+        split_cfg = {"train": 0.70, "val": 0.15, "test": 0.15}
+
+    train_frac, val_frac, test_frac = _validated_split_ratios(
+        float(split_cfg["train"]),
+        float(split_cfg["val"]),
+        float(split_cfg["test"]),
+        "split_cfg",
+    )
 
     train_and_holdout = dataset.train_test_split(
-        test_size=0.30,
+        test_size=1.0 - train_frac,
         seed=seed,
         stratify_by_column="label",
     )
-    validation_and_test = train_and_holdout["test"].train_test_split(
-        test_size=0.5,
+    remaining = train_and_holdout["test"]
+    remaining_test_size = test_frac / (val_frac + test_frac)
+    validation_and_test = remaining.train_test_split(
+        test_size=remaining_test_size,
         seed=seed + 1,
         stratify_by_column="label",
     )
@@ -55,6 +102,7 @@ def load_and_split(cfg, seed):
     """Load data and return prototype splits plus the untouched permanent holdout."""
 
     dataset = load_plant_dataset(cfg)
+    split_cfg = _resolve_split_config(cfg)
 
     development_pool, permanent_test = create_permanent_holdout(dataset, seed)
     data_cfg = cfg["data"]
@@ -65,6 +113,7 @@ def load_and_split(cfg, seed):
     train, validation, prototype_test = create_development_splits(
         prototype_subset,
         seed + 2,
+        split_cfg,
     )
 
     return {
