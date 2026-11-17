@@ -8,7 +8,7 @@ Plant disease classification from leaf images (PlantVillage). PyTorch, ClearML, 
 
 ## Links
 - Hugging Face Space: TODO
-- Final model (ClearML model/task ID): TODO
+- Final model (ClearML model/task ID): [`54df76bd8eb0441eaf0268912d117b66`](https://app.clear.ml/projects/2e8c7318aa8d41ff89fce07bd7a4c819/tasks/54df76bd8eb0441eaf0268912d117b66/output/log) — ResNet18 fine-tune, 0.994 validation accuracy on the full development pool
 
 ## Setup
 
@@ -71,6 +71,9 @@ python scripts/evaluate.py --task-id <id> --split permanent_test --final   # onc
 
 Add `--offline` to any script to run without a ClearML account. The permanent
 test set is only used with `--final`.
+
+No local GPU? `kaggle-training.ipynb` runs the same training commands on a
+free Kaggle T4 and tracks to the same ClearML project.
 
 ### App
 
