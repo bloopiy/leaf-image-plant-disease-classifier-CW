@@ -18,12 +18,26 @@ Plant disease classification from leaf images (PlantVillage). PyTorch, ClearML, 
 | Comparison 25% pool — SimpleCNN 0.912 / ResNet18 0.989 val acc | [`b1786fd7…`](https://app.clear.ml/projects/2e8c7318aa8d41ff89fce07bd7a4c819/tasks/b1786fd7739c47a7b0d9ac464425db83) / [`e72a6a4c…`](https://app.clear.ml/projects/2e8c7318aa8d41ff89fce07bd7a4c819/tasks/e72a6a4c4a444707aa99061253892626) | dev pipeline |
 | Full pool — SimpleCNN, 0.975 val acc | [`0c098d52…`](https://app.clear.ml/projects/2e8c7318aa8d41ff89fce07bd7a4c819/tasks/0c098d520b754f3e8e24d70b66915b31) | dev pipeline, `final-benchmark` |
 | Full pool — ResNet18, 0.994 val acc | [`9d057088…`](https://app.clear.ml/projects/2e8c7318aa8d41ff89fce07bd7a4c819/tasks/9d0570880da2487b9dab08bf211f6834) | dev pipeline, `final-benchmark`, **final model** |
+| Superseded: full pool — ResNet18, 0.994 val acc | [`54df76bd…`](https://app.clear.ml/projects/2e8c7318aa8d41ff89fce07bd7a4c819/tasks/54df76bd8eb0441eaf0268912d117b66) | master pipeline by mistake, `scratch-ignore` |
 
-All runs above were trained on the dev pipeline; the notebook's provenance
-guard verifies the zip (fingerprint matched dev @ 1d04e41). The 15 Nov runs
-that used a master-branch zip by mistake are kept in ClearML tagged
-`scratch-ignore` — caught in PR review before the permanent-test
-evaluation and retrained the same day.
+The first four runs were trained on the dev pipeline; the notebook's
+provenance guard verifies the zip. The 15 Nov runs (including `54df76bd…`,
+the earlier "final model") used a master-branch zip by mistake: no
+normalisation or augmentation, and checkpoints without their config. They are
+kept in ClearML tagged `scratch-ignore`. This was caught in PR review on
+17 Nov, before the permanent-test evaluation, and the runs were retrained on
+dev that day.
+
+Code fingerprint of dev @ 1d04e41, as printed by the notebook's first cell
+(first 16 hex characters of each file's SHA-256, with line endings
+normalised to LF):
+
+| File | Fingerprint |
+| --- | --- |
+| `scripts/train.py` | `1fd1dbb4235c2ea5` |
+| `src/plantdisease/train.py` | `ce105c7bf8c6ee8a` |
+| `configs/default.yaml` | `fcfdfcda0eaffc22` |
+| `configs/transfer.yaml` | `07b1a5582392f89b` |
 
 ## Setup
 
@@ -87,7 +101,7 @@ python scripts/evaluate.py --task-id <id> --split permanent_test --final   # onc
 Add `--offline` to any script to run without a ClearML account. The permanent
 test set is only used with `--final`.
 
-No local GPU? `kaggle-training.ipynb` runs the same training commands on a
+No local GPU? `notebooks/kaggle-training.ipynb` runs the same training commands on a
 free Kaggle T4 and tracks to the same ClearML project.
 
 ### App
