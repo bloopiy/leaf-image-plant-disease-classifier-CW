@@ -110,3 +110,22 @@ def test_format_label(raw, shown):
 def test_formatted_labels_stay_unique():
     names = load_class_names(CLASS_NAMES_PATH)
     assert len({format_label(name) for name in names}) == len(names)
+
+
+def test_app_starts_with_the_repo_settings():
+    """Importing app.py builds the model from configs/app.yaml, as the Space does.
+
+    Regression test: a bare yaml.safe_load left model.input_size as the string
+    "${data.image_size}", so the app crashed at startup with weights: null.
+    """
+    import importlib.util
+
+    app_file = Path(__file__).resolve().parents[1] / "app" / "app.py"
+    spec = importlib.util.spec_from_file_location("plant_app_under_test", app_file)
+    app_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(app_module)
+
+    _, model_cfg = app_module.load_settings()
+    assert isinstance(model_cfg["model"]["input_size"], int)
+    assert not app_module.MODEL.training
+    assert len(app_module.CLASS_NAMES) == app_module.MODEL_CFG["model"]["num_classes"]

@@ -3,7 +3,6 @@ import sys
 from pathlib import Path
 
 import gradio as gr
-import yaml
 
 APP_DIR = Path(__file__).resolve().parent
 
@@ -32,12 +31,17 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from inference import build_preprocess, format_label, predict_topk  # noqa: E402
 from model_loader import load_class_names, load_model  # noqa: E402
+from plantdisease.utils import load_config  # noqa: E402
 
 
 def load_settings():
-    """Read the app settings and the model config they point to."""
-    app_cfg = yaml.safe_load((ROOT / "configs" / "app.yaml").read_text())["app"]
-    model_cfg = yaml.safe_load((ROOT / "configs" / app_cfg["model_config"]).read_text())
+    """Read the app settings and the model config they point to.
+
+    Both go through load_config, the same loader training uses, so placeholders
+    such as ``model.input_size: ${data.image_size}`` are resolved.
+    """
+    app_cfg = load_config(ROOT / "configs" / "app.yaml")["app"]
+    model_cfg = load_config(ROOT / "configs" / app_cfg["model_config"])
     return app_cfg, model_cfg
 
 
