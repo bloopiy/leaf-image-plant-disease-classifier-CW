@@ -8,22 +8,22 @@ Plant disease classification from leaf images (PlantVillage). PyTorch, ClearML, 
 
 ## Links
 - Hugging Face Space: TODO
-- Final model (ClearML task ID): pending — retraining on the dev pipeline (see the experiment log)
+- Final model (ClearML task ID): [`9d0570880da2487b9dab08bf211f6834`](https://app.clear.ml/projects/2e8c7318aa8d41ff89fce07bd7a4c819/tasks/9d0570880da2487b9dab08bf211f6834/output/log) — ResNet18 fine-tune, 0.994 validation accuracy on the full development pool
 - Permanent-test accuracy: pending (one-shot evaluation, run once on the final model)
 
 ### Experiment log (ClearML project `PlantDisease-CW`)
 
 | Run | Task ID | Status |
 | --- | --- | --- |
-| Comparison 25% pool — SimpleCNN 0.894 / ResNet18 0.993 val acc | [`11919653…`](https://app.clear.ml/projects/2e8c7318aa8d41ff89fce07bd7a4c819/tasks/1191965337af49f7b18f646ffdda738d) / [`ebae7a60…`](https://app.clear.ml/projects/2e8c7318aa8d41ff89fce07bd7a4c819/tasks/ebae7a60c2524cc4b73c60b22632b9f5) | master pipeline — superseded, retraining |
-| Full pool — SimpleCNN, 0.960 val acc | [`76fe7fa9…`](https://app.clear.ml/projects/2e8c7318aa8d41ff89fce07bd7a4c819/tasks/76fe7fa9ff2f4906a628136775bc4522) | master pipeline — superseded, retraining |
-| Full pool — ResNet18, 0.994 val acc | [`54df76bd…`](https://app.clear.ml/projects/2e8c7318aa8d41ff89fce07bd7a4c819/tasks/54df76bd8eb0441eaf0268912d117b66) | master pipeline — superseded, retraining |
+| Comparison 25% pool — SimpleCNN 0.912 / ResNet18 0.989 val acc | [`b1786fd7…`](https://app.clear.ml/projects/2e8c7318aa8d41ff89fce07bd7a4c819/tasks/b1786fd7739c47a7b0d9ac464425db83) / [`e72a6a4c…`](https://app.clear.ml/projects/2e8c7318aa8d41ff89fce07bd7a4c819/tasks/e72a6a4c4a444707aa99061253892626) | dev pipeline |
+| Full pool — SimpleCNN, 0.975 val acc | [`0c098d52…`](https://app.clear.ml/projects/2e8c7318aa8d41ff89fce07bd7a4c819/tasks/0c098d520b754f3e8e24d70b66915b31) | dev pipeline, `final-benchmark` |
+| Full pool — ResNet18, 0.994 val acc | [`9d057088…`](https://app.clear.ml/projects/2e8c7318aa8d41ff89fce07bd7a4c819/tasks/9d0570880da2487b9dab08bf211f6834) | dev pipeline, `final-benchmark`, **final model** |
 
-The 15 Nov Kaggle runs were trained from a zip of the master branch by
-mistake (master has no normalisation / augmentation pipeline). This was
-caught in PR review before the permanent-test evaluation. The dev-pipeline
-retrained runs will replace this table; the superseded tasks are tagged
-`scratch-ignore` in ClearML.
+All runs above were trained on the dev pipeline; the notebook's provenance
+guard verifies the zip (fingerprint matched dev @ 1d04e41). The 15 Nov runs
+that used a master-branch zip by mistake are kept in ClearML tagged
+`scratch-ignore` — caught in PR review before the permanent-test
+evaluation and retrained the same day.
 
 ## Setup
 
