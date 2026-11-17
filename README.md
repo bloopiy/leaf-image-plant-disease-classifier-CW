@@ -8,7 +8,22 @@ Plant disease classification from leaf images (PlantVillage). PyTorch, ClearML, 
 
 ## Links
 - Hugging Face Space: TODO
-- Final model (ClearML model/task ID): [`54df76bd8eb0441eaf0268912d117b66`](https://app.clear.ml/projects/2e8c7318aa8d41ff89fce07bd7a4c819/tasks/54df76bd8eb0441eaf0268912d117b66/output/log) — ResNet18 fine-tune, 0.994 validation accuracy on the full development pool
+- Final model (ClearML task ID): pending — retraining on the dev pipeline (see the experiment log)
+- Permanent-test accuracy: pending (one-shot evaluation, run once on the final model)
+
+### Experiment log (ClearML project `PlantDisease-CW`)
+
+| Run | Task ID | Status |
+| --- | --- | --- |
+| Comparison 25% pool — SimpleCNN 0.894 / ResNet18 0.993 val acc | [`11919653…`](https://app.clear.ml/projects/2e8c7318aa8d41ff89fce07bd7a4c819/tasks/1191965337af49f7b18f646ffdda738d) / [`ebae7a60…`](https://app.clear.ml/projects/2e8c7318aa8d41ff89fce07bd7a4c819/tasks/ebae7a60c2524cc4b73c60b22632b9f5) | master pipeline — superseded, retraining |
+| Full pool — SimpleCNN, 0.960 val acc | [`76fe7fa9…`](https://app.clear.ml/projects/2e8c7318aa8d41ff89fce07bd7a4c819/tasks/76fe7fa9ff2f4906a628136775bc4522) | master pipeline — superseded, retraining |
+| Full pool — ResNet18, 0.994 val acc | [`54df76bd…`](https://app.clear.ml/projects/2e8c7318aa8d41ff89fce07bd7a4c819/tasks/54df76bd8eb0441eaf0268912d117b66) | master pipeline — superseded, retraining |
+
+The 15 Nov Kaggle runs were trained from a zip of the master branch by
+mistake (master has no normalisation / augmentation pipeline). This was
+caught in PR review before the permanent-test evaluation. The dev-pipeline
+retrained runs will replace this table; the superseded tasks are tagged
+`scratch-ignore` in ClearML.
 
 ## Setup
 
